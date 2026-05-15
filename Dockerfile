@@ -6,7 +6,6 @@ RUN apk add --no-cache --repository http://dl-cdn.alpinelinux.org/alpine/edge/te
 
 WORKDIR /app/
 COPY . .
-RUN python3 -m venv venv
-RUN venv/bin/pip install -U -r requirements.txt
+RUN pip3 install -U -r requirements.txt
 
-CMD ["venv/bin/python3", "-m", "megadl"]
+CMD ["python3", "-m", "megadl"]
