@@ -20,15 +20,18 @@ from megadl.helpers.pyros import track_progress
 
 # Respond only to Documents, Photos, Videos, GIFs, Audio and to urls other than mega
 @CypherClient.on_message(
-    filters.document
-    | filters.photo
-    | filters.video
-    | filters.animation
-    | filters.audio
-    | filters.regex(
-        r"((http|https)://)(www.)?(?!mega)[a-zA-Z0-9@:%._\+~#?&//=]{2,256}\.[a-z]{2,6}\b([-a-zA-Z0-9@:%._\+~#?&//=]*)"
+    filters.private & (
+        filters.document
+        | filters.photo
+        | filters.video
+        | filters.animation
+        | filters.audio
+        | filters.regex(
+            r"((http|https)://)(www.)?(?!mega)[a-zA-Z0-9@:%._\+~#?&//=]{2,256}\.[a-z]{2,6}\b([-a-zA-Z0-9@:%._\+~#?&//=]*)"
+        )
     )
 )
+
 @CypherClient.run_checks
 async def up_to(_: CypherClient, msg: Message):
     _mid = msg.id

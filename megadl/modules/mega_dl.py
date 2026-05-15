@@ -20,8 +20,9 @@ from megadl.lib.megatools import MegaTools
 
 
 @CypherClient.on_message(
-    filters.regex(r"(https?:\/\/mega\.nz\/(file|folder|#)?.+)|(\/Root\/?.+)")
+    filters.regex(r"^(https?:\/\/mega\.nz\/(file|folder|#)?.+)|^\/Root\/.+")
 )
+
 @CypherClient.run_checks
 async def dl_from(client: CypherClient, msg: Message):
     # Push info to temp db
