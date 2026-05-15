@@ -1,0 +1,15 @@
+version: "3.9"
+
+services:
+  megadl:
+    build: .
+    container_name: megadl_app
+    restart: unless-stopped
+
+    volumes:
+      - .:/app
+
+    working_dir: /app
+
+    stdin_open: true
+    tty: true
