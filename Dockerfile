@@ -1,28 +1,28 @@
-FROM alpine:latest
+FROM python:3.11-alpine
 
-RUN apk update && apk upgrade
+# System deps
 RUN apk add --no-cache \
-    python3 \
-    py3-pip \
-    gcc \
-    python3-dev \
-    musl-dev \
-    linux-headers \
+    ffmpeg \
     git \
-    ffmpeg
+    gcc \
+    musl-dev \
+    linux-headers
 
+# megatools (edge repo)
 RUN apk add --no-cache --repository http://dl-cdn.alpinelinux.org/alpine/edge/testing/ megatools
 
-# Create venv OUTSIDE app
-RUN python3 -m venv /venv
-
-# Upgrade pip inside venv
-RUN /venv/bin/pip install --upgrade pip
-
+# Set working dir
 WORKDIR /app
+
+# Copy requirements first (better caching)
+COPY requirements.txt .
+
+# Install Python deps
+RUN pip install --no-cache-dir -U pip && \
+    pip install --no-cache-dir -r requirements.txt
+
+# Copy rest of the code
 COPY . .
 
-# Install requirements in venv
-RUN /venv/bin/pip install -U -r requirements.txt
-
-CMD ["/venv/bin/python3", "-m", "megadl"]
+# Run app
+CMD ["python", "-m", "megadl"]
