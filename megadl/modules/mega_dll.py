@@ -6,6 +6,7 @@
 
 import re
 from os import path, makedirs
+from uuid import uuid4
 
 from pyrogram import filters
 from pyrogram.types import (
@@ -20,27 +21,21 @@ from megadl.lib.megatools import MegaTools
 
 
 # ✅ Added /mega command + kept old regex
-@CypherClient.on_message(
-    filters.command("mega"))
-    
+@CypherClient.on_message(filters.command("mega"))
 @CypherClient.run_checks
 async def dll_from(client: CypherClient, msg: Message):
     _usr = msg.from_user.id
 
-    # ✅ Support both /mega <link> and direct link
-    if msg.command:
-        if len(msg.command) < 2:
-            return await msg.reply("`Give a Mega link bro 🙂`")
-        url = msg.command[1]
-    else:
-        url = msg.text
+    if len(msg.command) < 2:
+        return await msg.reply("`Give a Mega link bro 🙂`")
 
-    dlid = f"{client.dl_loc}/{_usr}"
+    url = msg.command[1]
 
-    # Push info to temp db (kept as-is)
-    client.glob_tmp[_usr] = [url, dlid]
+    # ✅ unique folder
+    dlid = f"{client.dl_loc}/{_usr}/{uuid4().hex}"
+    makedirs(dlid, exist_ok=True)
 
-    # weird workaround to add support for private mode
+    # private mode config
     conf = None
     if client.is_public:
         udoc = await client.database.is_there(_usr, True)
@@ -54,49 +49,49 @@ async def dll_from(client: CypherClient, msg: Message):
             proxy = f"--proxy {udoc['proxy']}" if udoc["proxy"] else ""
             conf = f"--username {email} --password {password} {proxy}"
 
-    # Create unique download folder
-    if not path.isdir(dlid):
-        makedirs(dlid)
-
-    # ✅ Directly start download (no buttons)
     resp = await msg.reply("`Your download is starting 📥...`")
 
     cli = MegaTools(client, conf)
 
-    f_list = await cli.download(
-        url,
-        _usr,
-        msg.chat.id,
-        resp.id,
-        path=dlid,
-        reply_markup=InlineKeyboardMarkup(
-            [
-                [InlineKeyboardButton("Cancel ❌", callback_data=f"cancelqcb-{_usr}")],
-            ]
-        ),
-    )
+    try:
+        # ✅ download
+        f_list = await cli.download(
+            url,
+            _usr,
+            msg.chat.id,
+            resp.id,
+            path=dlid,
+            reply_markup=InlineKeyboardMarkup(
+                [
+                    [InlineKeyboardButton("Cancel ❌", callback_data=f"cancelqcb-{_usr}")]
+                ]
+            ),
+        )
 
-    if not f_list:
-        return
+        if not f_list:
+            return await resp.edit("Download failed ❌")
 
-    await resp.edit("`Successfully downloaded the content 🥳`")
+        await resp.edit("`Successfully downloaded 🥳`")
 
-    # update download count
-    if client.database:
-        await client.database.plus_fl_count(_usr, downloads=len(f_list))
+        if client.database:
+            await client.database.plus_fl_count(_usr, downloads=len(f_list))
 
-    # Send file(s) to the user
-    await resp.edit("`Trying to upload now 📤...`")
-    await client.send_files(
-        f_list,
-        msg.chat.id,
-        resp.id,
-        reply_to_message_id=msg.id,
-        caption=f"**Join @Neko_Drive ❤️**",
-    )
+        # ✅ upload
+        await resp.edit("`Uploading 📤...`")
 
-    await client.full_cleanup(dlid, _usr)
-    await resp.delete()
+        await client.send_files(
+            f_list,
+            msg.chat.id,
+            resp.id,
+            reply_to_message_id=msg.id,
+            caption="**Join @Neko_Drive ❤️**",
+        )
+
+        await resp.edit("`Done ✅`")
+
+    finally:
+        # ✅ ALWAYS cleanup
+        await client.full_cleanup(dlid, _usr)
 
 
 # (kept callback handler untouched, even though not used now)
