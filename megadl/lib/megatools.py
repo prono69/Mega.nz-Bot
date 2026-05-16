@@ -127,10 +127,7 @@ class MegaTools:
         """
         cmd = ""
         # check if the file is already present
-        
 
-
-        
         # For files
         if os.path.isfile(path):
             cmd = f'megaput {self.config} --no-ask-password --path "/Root/{to_path}/" "{path}"'
@@ -318,37 +315,60 @@ class MegaTools:
         )
         self.client.mega_running[user_id] = run.pid
 
-        async def read_stream(stream, handler):
+        output_buffer = []
+        last_text = ""
+
+        async def read_stream(stream, is_stderr=False):
             while True:
                 line = await stream.readline()
                 if line:
-                    await handler(
-                        line.decode("utf-8") if isinstance(line, bytes) else line
-                    )
+                    decoded = line.decode("utf-8") if isinstance(line, bytes) else line
+                    if is_stderr:
+                        if run.returncode is None:
+                            await self.__checkErrors(decoded)
+                    else:
+                        output_buffer.append(decoded.strip())
                 else:
                     break
 
-        async def handle_stdout(out):
-            try:
-                await self.client.edit_message_text(
-                    chat_id, msg_id, f"**Process info:** \n`{out}`", **kwargs
-                )
-            except Exception as e:
-                logging.warning(e)
+        async def periodic_edit():
+            nonlocal last_text
+            while True:
+                await asyncio.sleep(3)
+                if output_buffer:
+                    current_text = output_buffer[-1] if output_buffer else ""
+                    if current_text != last_text:
+                        try:
+                            await self.client.edit_message_text(
+                                chat_id, msg_id, f"**Process info:**\n`{current_text}`", **kwargs
+                            )
+                            last_text = current_text
+                        except Exception as e:
+                            logging.warning(e)
 
-        async def handle_stderr(err):
-            if run.returncode is None:
-                await self.__checkErrors(err)
-
-        stdout = read_stream(run.stdout, handle_stdout)
-        stderr = read_stream(run.stderr, handle_stderr)
+        stdout_task = asyncio.create_task(read_stream(run.stdout, is_stderr=False))
+        stderr_task = asyncio.create_task(read_stream(run.stderr, is_stderr=True))
+        editor_task = asyncio.create_task(periodic_edit())
 
         try:
-            await asyncio.gather(stdout, stderr)
+            await asyncio.gather(stdout_task, stderr_task)
         except asyncio.CancelledError:
             asyncio.create_task(self.__terminate_sub(run))
+        finally:
+            editor_task.cancel()
 
         await run.wait()
+
+        # Final update with last output
+        if output_buffer:
+            final_text = "\n".join(output_buffer[-30:])
+            if final_text != last_text:
+                try:
+                    await self.client.edit_message_text(
+                        chat_id, msg_id, f"**Process info:**\n`{final_text}`", **kwargs
+                    )
+                except Exception as e:
+                    logging.warning(e)
 
     async def __terminate_sub(self, run):
         run.terminate()
