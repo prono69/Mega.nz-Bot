@@ -334,7 +334,7 @@ class MegaTools:
         async def periodic_edit():
             nonlocal last_text
             while True:
-                await asyncio.sleep(3)
+                await asyncio.sleep(4)
                 if output_buffer:
                     current_text = output_buffer[-1] if output_buffer else ""
                     if current_text != last_text:

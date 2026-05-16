@@ -132,6 +132,7 @@ async def dl_from_cb(client: CypherClient, query: CallbackQuery):
     finally:
         # ✅ ALWAYS cleanup
         await client.full_cleanup(dlid, qusr)
+        await resp.delete()
 
         # ✅ remove temp data
         client.glob_tmp.pop(_mid, None)
